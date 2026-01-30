@@ -10,7 +10,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
+# Use DATABASE_URL if provided, otherwise default to SQLite
+database_url = os.getenv('DATABASE_URL')
+if database_url:
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
@@ -21,7 +26,19 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
 
-CORS(app)
+# Configure CORS - allow frontend URL from environment or default to localhost
+frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            frontend_url,
+            "http://localhost:3000",  # Keep for local development
+            "http://localhost:3001"   # Alternative local port
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 db = SQLAlchemy(app)
 mail = Mail(app)
 

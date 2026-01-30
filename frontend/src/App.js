@@ -27,7 +27,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const API_BASE_URL = 'http://localhost:5001';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
   const fetchCart = async () => {
     try {

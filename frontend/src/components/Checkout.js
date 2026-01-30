@@ -15,6 +15,8 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -33,7 +35,7 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
     }
 
     try {
-      const response = await axios.post('http://localhost:5001/api/discount/apply', {
+      const response = await axios.post(`${API_BASE_URL}/api/discount/apply`, {
         session_id: sessionId,
         code: formData.discount_code
       });
@@ -68,7 +70,7 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
         checkoutData.expiry_date = formData.expiry_date;
       }
 
-      const response = await axios.post('http://localhost:5001/api/checkout', checkoutData);
+      const response = await axios.post(`${API_BASE_URL}/api/checkout`, checkoutData);
       onSuccess(response.data);
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Checkout failed';
