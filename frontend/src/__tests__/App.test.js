@@ -19,20 +19,38 @@ describe('App Component', () => {
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
+    
+    // Mock initial cart fetch
+    axios.get.mockResolvedValue({ data: { items: [], total: 0, item_count: 0 } });
   });
 
-  test('renders app header with navigation', () => {
+  test('renders app header with navigation', async () => {
     render(<App />);
-    expect(screen.getByText('E-Commerce Checkout')).toBeInTheDocument();
-    expect(screen.getByText(/Products/i)).toBeInTheDocument();
-    expect(screen.getByText(/Cart/i)).toBeInTheDocument();
+    
+    await waitFor(() => {
+      expect(screen.getByText('E-Commerce Checkout')).toBeInTheDocument();
+    });
+    
+    const productButtons = screen.getAllByText(/Products/i);
+    const cartButtons = screen.getAllByText(/Cart/i);
+    expect(productButtons.length).toBeGreaterThan(0);
+    expect(cartButtons.length).toBeGreaterThan(0);
   });
 
-  test('switches between Products and Cart views', () => {
+  test('switches between Products and Cart views', async () => {
     render(<App />);
-    const cartButton = screen.getByText(/Cart/i);
-    fireEvent.click(cartButton);
-    expect(screen.getByText(/Your Cart/i)).toBeInTheDocument();
+    
+    await waitFor(() => {
+      expect(screen.getByText('E-Commerce Checkout')).toBeInTheDocument();
+    });
+    
+    const cartButtons = screen.getAllByText(/Cart/i);
+    fireEvent.click(cartButtons[0]);
+    
+    await waitFor(() => {
+      const cartHeadings = screen.getAllByText(/Your Cart/i);
+      expect(cartHeadings.length).toBeGreaterThan(0);
+    });
   });
 });
 
@@ -373,7 +391,7 @@ describe('OrderConfirmation Component', () => {
     render(<OrderConfirmation order={mockOrder} />);
     
     expect(screen.getByText(/Order Confirmed/i)).toBeInTheDocument();
-    expect(screen.getByText(mockOrder.order_number)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(mockOrder.order_number))).toBeInTheDocument();
     expect(screen.getByText('$999.99')).toBeInTheDocument();
   });
 

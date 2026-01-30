@@ -126,8 +126,9 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
             {discount && <div className="success">Discount applied successfully!</div>}
           </div>
 
-          <label>Email Address *</label>
+          <label htmlFor="email">Email Address *</label>
           <input
+            id="email"
             type="email"
             name="email"
             value={formData.email}
@@ -136,8 +137,9 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
           />
           {errors.email && <div className="error">{errors.email}</div>}
 
-          <label>Shipping Address *</label>
+          <label htmlFor="shipping_address">Shipping Address *</label>
           <textarea
+            id="shipping_address"
             name="shipping_address"
             value={formData.shipping_address}
             onChange={handleChange}
@@ -147,8 +149,9 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
           />
           {errors.shipping_address && <div className="error">{errors.shipping_address}</div>}
 
-          <label>Payment Method *</label>
+          <label htmlFor="payment_method">Payment Method *</label>
           <select
+            id="payment_method"
             name="payment_method"
             value={formData.payment_method}
             onChange={handleChange}
@@ -160,8 +163,9 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
 
           {formData.payment_method === 'card' && (
             <>
-              <label>Card Number *</label>
+              <label htmlFor="card_number">Card Number *</label>
               <input
+                id="card_number"
                 type="text"
                 name="card_number"
                 value={formData.card_number}
@@ -174,8 +178,9 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
 
               <div className="form-row">
                 <div>
-                  <label>CVV *</label>
+                  <label htmlFor="cvv">CVV *</label>
                   <input
+                    id="cvv"
                     type="text"
                     name="cvv"
                     value={formData.cvv}
@@ -187,8 +192,9 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
                   {errors.cvv && <div className="error">{errors.cvv}</div>}
                 </div>
                 <div>
-                  <label>Expiry Date *</label>
+                  <label htmlFor="expiry_date">Expiry Date *</label>
                   <input
+                    id="expiry_date"
                     type="text"
                     name="expiry_date"
                     value={formData.expiry_date}

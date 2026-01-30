@@ -61,6 +61,9 @@ class Order(db.Model):
 
 # Validation helpers
 def validate_email(email):
+    # Improved email validation to reject consecutive dots
+    if '..' in email or email.startswith('.') or email.endswith('.'):
+        return False
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
@@ -313,7 +316,8 @@ def checkout():
         
         # Simulate payment processing
         # In production, integrate with payment gateway
-        if card_number.endswith('0000'):
+        # Decline if card ends in '000' or '0000' (test cards)
+        if card_number.endswith('0000') or card_number.endswith('000'):
             return jsonify({'error': 'Payment declined'}), 400
     
     # Create order
