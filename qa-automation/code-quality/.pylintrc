@@ -1,0 +1,54 @@
+[MASTER]
+jobs=4
+persistent=yes
+
+[MESSAGES CONTROL]
+disable=
+    C0111,  # missing-docstring
+    C0103,  # invalid-name
+    R0903,  # too-few-public-methods
+    R0913,  # too-many-arguments
+    W0703,  # broad-except (we handle this case by case)
+
+[REPORTS]
+output-format=json
+reports=yes
+score=yes
+
+[BASIC]
+good-names=i,j,k,ex,Run,_,id,db,app
+max-line-length=120
+max-module-lines=1000
+
+[FORMAT]
+indent-string='    '
+indent-after-paren=4
+
+[DESIGN]
+max-args=7
+max-locals=15
+max-returns=6
+max-branches=12
+max-statements=50
+max-attributes=10
+min-public-methods=1
+max-public-methods=20
+
+[SIMILARITIES]
+min-similarity-lines=4
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=no
+
+[VARIABLES]
+init-import=no
+
+[CLASSES]
+valid-classmethod-first-arg=cls
+valid-metaclass-classmethod-first-arg=mcs
+
+[IMPORTS]
+deprecated-modules=optparse,imp
+
+[EXCEPTIONS]
+overgeneral-exceptions=BaseException,Exception
