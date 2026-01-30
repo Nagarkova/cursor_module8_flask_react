@@ -3,7 +3,8 @@
 
 [build]
   # Build command - explicitly change to frontend directory
-  command = "cd frontend && npm ci && npm run build"
+  # Run linting first to catch errors, then build
+  command = "cd frontend && npm ci && npm run lint && npm run build"
   # Directory to publish (relative to repo root)
   publish = "frontend/build"
 

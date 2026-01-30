@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
 import ProductList from './components/ProductList';
@@ -22,22 +22,20 @@ function App() {
   const [order, setOrder] = useState(null);
   const [notification, setNotification] = useState(null);
 
-  useEffect(() => {
-    fetchCart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
-  const fetchCart = async () => {
+  const fetchCart = useCallback(async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/cart?session_id=${sessionId}`);
-      console.log(response.data);
       setCart(response.data);
     } catch (error) {
       console.error('Error fetching cart:', error);
     }
-  };
+  }, [API_BASE_URL, sessionId]);
+
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]);
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
