@@ -8,7 +8,7 @@ import threading
 import time
 import os
 from app import app, db, Product, CartItem, DiscountCode, Order
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from test_data_generator import TestDataGenerator
 
 @pytest.fixture
@@ -47,13 +47,13 @@ def client():
                     code='EXPIRED',
                     discount_percent=15.0,
                     is_active=True,
-                    expiry_date=datetime.utcnow() - timedelta(days=1)
+                    expiry_date=datetime.now(timezone.utc) - timedelta(days=1)
                 ),
                 DiscountCode(
                     code='FUTURE',
                     discount_percent=25.0,
                     is_active=True,
-                    expiry_date=datetime.utcnow() + timedelta(days=30)
+                    expiry_date=datetime.now(timezone.utc) + timedelta(days=30)
                 ),
             ]
             for code in discount_codes:

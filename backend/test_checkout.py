@@ -6,7 +6,7 @@ import pytest
 import json
 import os
 from app import app, db, Product, CartItem, DiscountCode, Order
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 @pytest.fixture
 def client():
@@ -41,7 +41,7 @@ def client():
                     code='EXPIRED',
                     discount_percent=15.0,
                     is_active=True,
-                    expiry_date=datetime.utcnow() - timedelta(days=1)
+                    expiry_date=datetime.now(timezone.utc) - timedelta(days=1)
                 ),
             ]
             for code in discount_codes:

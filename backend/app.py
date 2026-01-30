@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 import os
 from dotenv import load_dotenv
@@ -168,7 +168,7 @@ def add_to_cart():
         return jsonify({'error': 'Invalid quantity'}), 400
     
     # Check if product exists
-    product = Product.query.get(product_id)
+    product = db.session.get(Product, product_id)
     if not product:
         return jsonify({'error': 'Product not found'}), 404
     
@@ -259,8 +259,14 @@ def apply_discount():
     if not discount.is_active:
         return jsonify({'error': 'Discount code is not active'}), 400
     
-    if discount.expiry_date and discount.expiry_date < datetime.utcnow():
-        return jsonify({'error': 'Discount code has expired'}), 400
+    if discount.expiry_date:
+        # Handle both timezone-aware and timezone-naive datetimes
+        expiry = discount.expiry_date
+        if expiry.tzinfo is None:
+            # Make timezone-naive datetime timezone-aware
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if expiry < datetime.now(timezone.utc):
+            return jsonify({'error': 'Discount code has expired'}), 400
     
     # Get cart total
     items = CartItem.query.filter_by(session_id=session_id).all()
@@ -318,7 +324,15 @@ def checkout():
     if discount_code:
         discount = DiscountCode.query.filter_by(code=discount_code.upper()).first()
         if discount and discount.is_active:
-            if not discount.expiry_date or discount.expiry_date >= datetime.utcnow():
+            if not discount.expiry_date:
+                discount_amount = cart_total * (discount.discount_percent / 100)
+            else:
+                # Handle both timezone-aware and timezone-naive datetimes
+                expiry = discount.expiry_date
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                if expiry >= datetime.now(timezone.utc):
+                    discount_amount = cart_total * (discount.discount_percent / 100)
                 discount_amount = cart_total * (discount.discount_percent / 100)
     
     final_total = cart_total - discount_amount
@@ -341,7 +355,7 @@ def checkout():
             return jsonify({'error': 'Payment declined'}), 400
     
     # Create order with unique order number including microseconds
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
     order_number = f"ORD-{timestamp.strftime('%Y%m%d%H%M%S')}-{timestamp.microsecond}-{session_id[:8]}"
     order = Order(
         order_number=order_number,
@@ -427,7 +441,7 @@ def health_check():
         
         return jsonify({
             'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'database': 'connected',
             'products': product_count,
             'version': '1.0.0'
@@ -435,7 +449,7 @@ def health_check():
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'error': str(e)
         }), 503
 

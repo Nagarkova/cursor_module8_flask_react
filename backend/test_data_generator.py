@@ -4,7 +4,7 @@ Generates realistic test data for comprehensive testing
 """
 import random
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from faker import Faker
 
 fake = Faker()
@@ -132,9 +132,9 @@ class TestDataGenerator:
         """Generate discount code test data"""
         expiry_date = None
         if expired:
-            expiry_date = datetime.utcnow() - timedelta(days=random.randint(1, 30))
+            expiry_date = datetime.now(timezone.utc) - timedelta(days=random.randint(1, 30))
         elif active:
-            expiry_date = datetime.utcnow() + timedelta(days=random.randint(1, 365))
+            expiry_date = datetime.now(timezone.utc) + timedelta(days=random.randint(1, 365))
         
         return {
             'code': ''.join(random.choices(string.ascii_uppercase + string.digits, k=8)),
