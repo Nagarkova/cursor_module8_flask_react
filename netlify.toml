@@ -2,12 +2,10 @@
 # This file should be at the repository root
 
 [build]
-  # Base directory - where to run the build from
-  base = "frontend"
-  # Build command
-  command = "npm ci && npm run build"
-  # Directory to publish (relative to base)
-  publish = "build"
+  # Build command - explicitly change to frontend directory
+  command = "cd frontend && npm ci && npm run build"
+  # Directory to publish (relative to repo root)
+  publish = "frontend/build"
 
 # Environment variables (set these in Netlify dashboard)
 # REACT_APP_API_URL will be set in Netlify dashboard
