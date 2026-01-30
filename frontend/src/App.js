@@ -27,9 +27,17 @@ function App() {
   const fetchCart = useCallback(async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/cart?session_id=${sessionId}`);
-      setCart(response.data);
+      // Ensure response.data has the expected structure
+      const cartData = response.data || { items: [], total: 0, item_count: 0 };
+      // Ensure items is always an array
+      if (!Array.isArray(cartData.items)) {
+        cartData.items = [];
+      }
+      setCart(cartData);
     } catch (error) {
       console.error('Error fetching cart:', error);
+      // Set empty cart on error
+      setCart({ items: [], total: 0, item_count: 0 });
     }
   }, [API_BASE_URL, sessionId]);
 

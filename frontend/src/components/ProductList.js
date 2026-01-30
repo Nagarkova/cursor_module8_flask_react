@@ -10,11 +10,14 @@ function ProductList({ addToCart }) {
   const fetchProducts = useCallback(async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/products`);
-      setProducts(response.data);
+      // Ensure response.data is an array
+      const productsData = Array.isArray(response.data) ? response.data : [];
+      setProducts(productsData);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching products:', error);
       console.error('Error details:', error.response?.data || error.message);
+      setProducts([]); // Set empty array on error
       setLoading(false);
     }
   }, [API_BASE_URL]);
@@ -29,6 +32,25 @@ function ProductList({ addToCart }) {
 
   if (loading) {
     return <div className="card">Loading products...</div>;
+  }
+
+  // Ensure products is always an array before mapping
+  if (!Array.isArray(products)) {
+    return (
+      <div>
+        <h2>Products</h2>
+        <div className="card">No products available. Please try again later.</div>
+      </div>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <div>
+        <h2>Products</h2>
+        <div className="card">No products found.</div>
+      </div>
+    );
   }
 
   return (
