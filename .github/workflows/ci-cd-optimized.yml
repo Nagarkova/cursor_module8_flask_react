@@ -1,0 +1,779 @@
+name: Optimized CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  CACHE_VERSION: 'v1'  # Increment to bust cache
+
+# Cancel in-progress runs for the same workflow
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==================== Setup & Cache ====================
+  setup:
+    name: Setup & Cache Dependencies
+    runs-on: ubuntu-latest
+    outputs:
+      backend-cache-key: ${{ steps.backend-cache.outputs.cache-hit }}
+      frontend-cache-key: ${{ steps.frontend-cache.outputs.cache-hit }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Cache Python dependencies
+        id: backend-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            backend/venv
+          key: ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-
+            ${{ runner.os }}-pip-
+      
+      - name: Install Python dependencies
+        if: steps.backend-cache.outputs.cache-hit != 'true'
+        working-directory: ./backend
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Cache Node modules
+        id: frontend-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            frontend/node_modules
+          key: ${{ runner.os }}-node-${{ env.CACHE_VERSION }}-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ env.CACHE_VERSION }}-
+            ${{ runner.os }}-node-
+      
+      - name: Install Node dependencies
+        if: steps.frontend-cache.outputs.cache-hit != 'true'
+        working-directory: ./frontend
+        run: npm ci --prefer-offline --no-audit
+
+  # ==================== Parallel Test Jobs ====================
+  backend-unit-tests:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    services:
+      postgres:
+        image: postgres:15-alpine  # Alpine for faster startup
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 3
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Restore Python cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            backend/venv
+          key: ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-${{ hashFiles('backend/requirements.txt') }}
+      
+      - name: Run unit tests
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          FLASK_ENV: testing
+        run: |
+          source venv/bin/activate || pip install -r requirements.txt
+          pytest test_checkout.py -v --cov=app --cov-report=xml --cov-report=term -n auto
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./backend/coverage.xml
+          flags: backend-unit
+          name: backend-unit-coverage
+
+  backend-integration-tests:
+    name: Backend Integration Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 3
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Restore Python cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            backend/venv
+          key: ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-${{ hashFiles('backend/requirements.txt') }}
+      
+      - name: Run integration tests
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          FLASK_ENV: testing
+        run: |
+          source venv/bin/activate || pip install -r requirements.txt
+          pytest test_checkout_expanded.py -v --cov=app --cov-report=xml --cov-report=term -n auto
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./backend/coverage.xml
+          flags: backend-integration
+          name: backend-integration-coverage
+
+  frontend-unit-tests:
+    name: Frontend Unit Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Restore Node cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            frontend/node_modules
+          key: ${{ runner.os }}-node-${{ env.CACHE_VERSION }}-${{ hashFiles('frontend/package-lock.json') }}
+      
+      - name: Run unit tests
+        working-directory: ./frontend
+        run: |
+          [ -d node_modules ] || npm ci --prefer-offline --no-audit
+          npm test -- --coverage --watchAll=false --testPathPattern="App.test"
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./frontend/coverage/coverage-final.json
+          flags: frontend-unit
+          name: frontend-unit-coverage
+
+  frontend-integration-tests:
+    name: Frontend Integration Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Restore Node cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            frontend/node_modules
+          key: ${{ runner.os }}-node-${{ env.CACHE_VERSION }}-${{ hashFiles('frontend/package-lock.json') }}
+      
+      - name: Run integration tests
+        working-directory: ./frontend
+        run: |
+          [ -d node_modules ] || npm ci --prefer-offline --no-audit
+          npm test -- --coverage --watchAll=false --testPathPattern="integration.test"
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./frontend/coverage/coverage-final.json
+          flags: frontend-integration
+          name: frontend-integration-coverage
+
+  # ==================== Code Quality (Parallel) ====================
+  backend-lint:
+    name: Backend Linting
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Cache linting tools
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-lint-${{ env.CACHE_VERSION }}-${{ hashFiles('backend/requirements.txt') }}
+      
+      - name: Lint Python code
+        working-directory: ./backend
+        run: |
+          pip install flake8 black pylint --quiet
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+  frontend-lint:
+    name: Frontend Linting
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Restore Node cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            frontend/node_modules
+          key: ${{ runner.os }}-node-${{ env.CACHE_VERSION }}-${{ hashFiles('frontend/package-lock.json') }}
+      
+      - name: Lint JavaScript code
+        working-directory: ./frontend
+        run: |
+          [ -d node_modules ] || npm ci --prefer-offline --no-audit
+          npm run lint
+
+  # ==================== Security Scanning (Parallel) ====================
+  backend-security:
+    name: Backend Security Scan
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Run Bandit security scan
+        working-directory: ./backend
+        run: |
+          pip install bandit[toml] --quiet
+          bandit -r . -f json -o bandit-report.json || true
+          bandit -r . -f screen
+      
+      - name: Run Safety check
+        working-directory: ./backend
+        run: |
+          pip install safety --quiet
+          safety check --json || true
+      
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-security-report
+          path: backend/bandit-report.json
+          retention-days: 30
+
+  frontend-security:
+    name: Frontend Security Scan
+    runs-on: ubuntu-latest
+    needs: setup
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Restore Node cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            frontend/node_modules
+          key: ${{ runner.os }}-node-${{ env.CACHE_VERSION }}-${{ hashFiles('frontend/package-lock.json') }}
+      
+      - name: Run npm audit
+        working-directory: ./frontend
+        run: |
+          [ -d node_modules ] || npm ci --prefer-offline --no-audit
+          npm audit --audit-level=moderate --json > npm-audit.json || true
+          npm audit --audit-level=moderate || true
+      
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --file=frontend/package.json
+      
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-security-report
+          path: frontend/npm-audit.json
+          retention-days: 30
+
+  # ==================== Build Jobs (with Docker Layer Caching) ====================
+  backend-build:
+    name: Backend Build & Docker
+    runs-on: ubuntu-latest
+    needs: [backend-unit-tests, backend-integration-tests, backend-lint]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ env.CACHE_VERSION }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ env.CACHE_VERSION }}-
+            ${{ runner.os }}-buildx-
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: |
+            backend:${{ github.sha }}
+            backend:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          outputs: type=docker,dest=/tmp/backend-image.tar
+      
+      # Temp fix for cache growth
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+      
+      - name: Upload Docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-docker-image
+          path: /tmp/backend-image.tar
+          retention-days: 1
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    needs: [frontend-unit-tests, frontend-integration-tests, frontend-lint]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Restore Node cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            frontend/node_modules
+          key: ${{ runner.os }}-node-${{ env.CACHE_VERSION }}-${{ hashFiles('frontend/package-lock.json') }}
+      
+      - name: Build frontend
+        working-directory: ./frontend
+        env:
+          REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL || 'http://localhost:5000' }}
+          CI: false  # Prevent warnings from failing build
+        run: |
+          [ -d node_modules ] || npm ci --prefer-offline --no-audit
+          npm run build
+      
+      - name: Compress build artifacts
+        run: |
+          tar -czf frontend-build.tar.gz -C frontend/build .
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend-build.tar.gz
+          retention-days: 7
+
+  # ==================== Deploy to Staging ====================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build, backend-security, frontend-security]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.example.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download backend Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-docker-image
+          path: /tmp
+      
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+      
+      - name: Load Docker image
+        run: docker load --input /tmp/backend-image.tar
+      
+      - name: Deploy backend to staging
+        env:
+          STAGING_DEPLOY_KEY: ${{ secrets.STAGING_DEPLOY_KEY }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          echo "Deploying backend to staging..."
+          # Add your deployment commands here
+          # Example: docker tag, docker push, kubectl apply, etc.
+      
+      - name: Deploy frontend to staging
+        env:
+          STAGING_DEPLOY_KEY: ${{ secrets.STAGING_DEPLOY_KEY }}
+        run: |
+          tar -xzf frontend-build.tar.gz -C /tmp/frontend-build
+          echo "Deploying frontend to staging..."
+          # Add your deployment commands here
+          # Example: aws s3 sync, rsync, etc.
+      
+      - name: Health check - Backend
+        run: |
+          echo "Running health check on staging backend..."
+          for i in {1..10}; do
+            if curl -f -s -o /dev/null -w "%{http_code}" https://staging.example.com/api/health | grep -q "200"; then
+              echo "✅ Backend health check passed"
+              exit 0
+            fi
+            echo "⏳ Waiting for backend to be ready (attempt $i/10)..."
+            sleep 10
+          done
+          echo "❌ Backend health check failed"
+          exit 1
+        continue-on-error: false
+      
+      - name: Health check - Frontend
+        run: |
+          echo "Running health check on staging frontend..."
+          if curl -f -s -o /dev/null -w "%{http_code}" https://staging.example.com | grep -q "200"; then
+            echo "✅ Frontend health check passed"
+          else
+            echo "❌ Frontend health check failed"
+            exit 1
+          fi
+
+  # ==================== Deploy to Production ====================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build, backend-security, frontend-security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://example.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download backend Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-docker-image
+          path: /tmp
+      
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+      
+      - name: Load Docker image
+        run: docker load --input /tmp/backend-image.tar
+      
+      - name: Deploy backend to production
+        env:
+          PRODUCTION_DEPLOY_KEY: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          echo "Deploying backend to production..."
+          # Example:
+          # docker tag backend:${{ github.sha }} registry.example.com/backend:${{ github.sha }}
+          # docker push registry.example.com/backend:${{ github.sha }}
+          # kubectl set image deployment/backend backend=registry.example.com/backend:${{ github.sha }}
+      
+      - name: Deploy frontend to production
+        env:
+          PRODUCTION_DEPLOY_KEY: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
+        run: |
+          tar -xzf frontend-build.tar.gz -C /tmp/frontend-build
+          echo "Deploying frontend to production..."
+          # Example:
+          # aws s3 sync /tmp/frontend-build s3://your-bucket-name --delete
+          # aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
+      
+      - name: Health check - Backend
+        run: |
+          echo "Running health check on production backend..."
+          for i in {1..10}; do
+            if curl -f -s -o /dev/null -w "%{http_code}" https://example.com/api/health | grep -q "200"; then
+              echo "✅ Backend health check passed"
+              exit 0
+            fi
+            echo "⏳ Waiting for backend to be ready (attempt $i/10)..."
+            sleep 10
+          done
+          echo "❌ Backend health check failed - initiating rollback"
+          # Add rollback commands here
+          exit 1
+        continue-on-error: false
+      
+      - name: Health check - Frontend
+        run: |
+          echo "Running health check on production frontend..."
+          if curl -f -s -o /dev/null -w "%{http_code}" https://example.com | grep -q "200"; then
+            echo "✅ Frontend health check passed"
+          else
+            echo "❌ Frontend health check failed - initiating rollback"
+            # Add rollback commands here
+            exit 1
+          fi
+      
+      - name: Smoke tests
+        run: |
+          echo "Running smoke tests..."
+          # Add smoke test commands here
+          # Example: curl tests, API endpoint tests, etc.
+
+  # ==================== Notifications ====================
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: success() && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "✅ Production Deployment Successful",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "✅ Production Deployment Successful"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n<${{ github.event.head_commit.url }}|${{ github.sha }}>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Author:*\n${{ github.actor }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Message:*\n${{ github.event.head_commit.message }}"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Production"
+                      },
+                      "url": "https://example.com"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [backend-unit-tests, backend-integration-tests, frontend-unit-tests, frontend-integration-tests, backend-build, frontend-build, deploy-staging, deploy-production]
+    if: failure()
+    
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "❌ Pipeline Failed",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "❌ Pipeline Failed"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n<${{ github.event.head_commit.url }}|${{ github.sha }}>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Author:*\n${{ github.actor }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Failed Job:*\nCheck workflow for details"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Failed Workflow"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                      "style": "danger"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

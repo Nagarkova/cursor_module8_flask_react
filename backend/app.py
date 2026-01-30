@@ -397,6 +397,31 @@ def get_order(order_number):
     })
 
 # Initialize database
+# Health check endpoint for monitoring
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for CI/CD and monitoring"""
+    try:
+        # Check database connection
+        db.session.execute(db.text('SELECT 1'))
+        
+        # Check critical tables exist
+        product_count = Product.query.count()
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'database': 'connected',
+            'products': product_count,
+            'version': '1.0.0'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'error': str(e)
+        }), 503
+
 def init_db():
     """Initialize database and seed sample data"""
     db.create_all()
