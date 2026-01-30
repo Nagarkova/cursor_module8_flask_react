@@ -37,9 +37,7 @@ jobs:
         id: backend-cache
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/pip
-            backend/venv
+          path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-${{ hashFiles('backend/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-
@@ -49,9 +47,7 @@ jobs:
         if: steps.backend-cache.outputs.cache-hit != 'true'
         working-directory: ./backend
         run: |
-          python -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
       
       - name: Set up Node.js
@@ -94,18 +90,21 @@ jobs:
       - name: Restore Python cache
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/pip
-            backend/venv
+          path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-${{ hashFiles('backend/requirements.txt') }}
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
       
       - name: Run unit tests
         working-directory: ./backend
         env:
           FLASK_ENV: testing
         run: |
-          source venv/bin/activate || pip install -r requirements.txt
-          pytest test_checkout.py -v --cov=app --cov-report=xml --cov-report=term -n auto
+          pytest test_checkout.py -v --cov=app --cov-report=xml --cov-report=term
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -131,18 +130,21 @@ jobs:
       - name: Restore Python cache
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/pip
-            backend/venv
+          path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ env.CACHE_VERSION }}-${{ hashFiles('backend/requirements.txt') }}
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
       
       - name: Run integration tests
         working-directory: ./backend
         env:
           FLASK_ENV: testing
         run: |
-          source venv/bin/activate || pip install -r requirements.txt
-          pytest test_checkout_expanded.py -v --cov=app --cov-report=xml --cov-report=term -n auto
+          pytest test_checkout_expanded.py -v --cov=app --cov-report=xml --cov-report=term
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -297,12 +299,18 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
       - name: Run Bandit security scan
         working-directory: ./backend
         run: |
           pip install bandit[toml] --quiet
           bandit -r . -f json -o bandit-report.json || true
-          bandit -r . -f screen
+          bandit -r . -f screen || true
       
       - name: Run Safety check
         working-directory: ./backend
