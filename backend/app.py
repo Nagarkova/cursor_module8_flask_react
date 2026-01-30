@@ -282,6 +282,9 @@ def checkout():
     if not session_id:
         return jsonify({'error': 'session_id required'}), 400
     
+    if not payment_method:
+        return jsonify({'error': 'payment_method required'}), 400
+    
     if not validate_email(email):
         return jsonify({'error': 'Invalid email address'}), 400
     
@@ -320,8 +323,9 @@ def checkout():
         if card_number.endswith('0000') or card_number.endswith('000'):
             return jsonify({'error': 'Payment declined'}), 400
     
-    # Create order
-    order_number = f"ORD-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{session_id[:8]}"
+    # Create order with unique order number including microseconds
+    timestamp = datetime.utcnow()
+    order_number = f"ORD-{timestamp.strftime('%Y%m%d%H%M%S')}-{timestamp.microsecond}-{session_id[:8]}"
     order = Order(
         order_number=order_number,
         session_id=session_id,

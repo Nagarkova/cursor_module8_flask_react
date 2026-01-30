@@ -19,7 +19,11 @@ def client():
     
     with app.test_client() as client:
         with app.app_context():
+            # Drop all tables first to ensure clean state
+            db.drop_all()
+            # Create all tables
             db.create_all()
+            
             # Seed test data
             products = [
                 Product(name='Test Product 1', price=100.0, stock=10),
@@ -31,6 +35,8 @@ def client():
             for p in products:
                 db.session.add(p)
             
+            # Check if discount codes already exist to avoid duplicates
+            existing_codes = {code.code for code in DiscountCode.query.all()}
             discount_codes = [
                 DiscountCode(code='VALID10', discount_percent=10.0, is_active=True),
                 DiscountCode(code='VALID20', discount_percent=20.0, is_active=True),
@@ -49,7 +55,8 @@ def client():
                 ),
             ]
             for code in discount_codes:
-                db.session.add(code)
+                if code.code not in existing_codes:
+                    db.session.add(code)
             
             db.session.commit()
         yield client
@@ -105,7 +112,8 @@ class TestPositiveScenariosExpanded:
         })
         assert response.status_code == 201
         data = json.loads(response.data)
-        assert data['payment_method'] == 'paypal' or 'order_number' in data
+        assert 'order_number' in data
+        assert data['status'] == 'confirmed'
     
     def test_checkout_with_multiple_discount_codes(self, client, session_id):
         """Test applying different discount codes"""
@@ -291,14 +299,15 @@ class TestEdgeCasesExpanded:
     def test_cart_maximum_items_limit(self, client, session_id):
         """Test cart with maximum number of items"""
         # Add maximum stock of each product
-        for product_id in [1, 2]:
-            stock = Product.query.get(product_id).stock
-            response = client.post('/api/cart/add', json={
-                'session_id': session_id,
-                'product_id': product_id,
-                'quantity': stock
-            })
-            assert response.status_code == 201
+        with app.app_context():
+            for product_id in [1, 2]:
+                stock = Product.query.get(product_id).stock
+                response = client.post('/api/cart/add', json={
+                    'session_id': session_id,
+                    'product_id': product_id,
+                    'quantity': stock
+                })
+                assert response.status_code == 201
         
         cart_response = client.get(f'/api/cart?session_id={session_id}')
         data = json.loads(cart_response.data)
@@ -393,11 +402,14 @@ class TestEdgeCasesExpanded:
     
     def test_checkout_with_exactly_available_stock(self, client, session_id):
         """Test checkout with exactly available stock"""
-        product = Product.query.get(4)  # Limited Stock (stock: 2)
+        with app.app_context():
+            product = Product.query.get(4)  # Limited Stock (stock: 2)
+            stock_qty = product.stock
+        
         client.post('/api/cart/add', json={
             'session_id': session_id,
             'product_id': 4,
-            'quantity': product.stock
+            'quantity': stock_qty
         })
         
         response = client.post('/api/checkout', json={
@@ -412,8 +424,9 @@ class TestEdgeCasesExpanded:
         assert response.status_code == 201
         
         # Verify stock is now 0
-        updated_product = Product.query.get(4)
-        assert updated_product.stock == 0
+        with app.app_context():
+            updated_product = Product.query.get(4)
+            assert updated_product.stock == 0
     
     def test_very_long_shipping_address(self, client, session_id):
         """Test checkout with very long shipping address"""
@@ -535,15 +548,17 @@ class TestSecurityAndPCICompliance:
             "<img src=x onerror=alert('XSS')>",
         ]
         
-        for payload in xss_payloads:
+        for i, payload in enumerate(xss_payloads):
+            # Use unique session for each test to avoid order number conflicts
+            test_session_id = f"{session_id}_{i}"
             client.post('/api/cart/add', json={
-                'session_id': session_id,
+                'session_id': test_session_id,
                 'product_id': 1,
                 'quantity': 1
             })
             
             response = client.post('/api/checkout', json={
-                'session_id': session_id,
+                'session_id': test_session_id,
                 'email': 'test@example.com',
                 'payment_method': 'card',
                 'card_number': '4111111111111111',
