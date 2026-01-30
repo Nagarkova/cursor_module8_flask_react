@@ -6,6 +6,7 @@ import pytest
 import json
 import threading
 import time
+import os
 from app import app, db, Product, CartItem, DiscountCode, Order
 from datetime import datetime, timedelta
 from test_data_generator import TestDataGenerator
@@ -14,7 +15,8 @@ from test_data_generator import TestDataGenerator
 def client():
     """Create test client"""
     app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    # Use DATABASE_URL from environment if available, otherwise use SQLite in-memory
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///:memory:')
     app.config['MAIL_SUPPRESS_SEND'] = True
     
     with app.test_client() as client:
