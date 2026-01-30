@@ -20,6 +20,7 @@ function App() {
   const [currentView, setCurrentView] = useState('products');
   const [cart, setCart] = useState({ items: [], total: 0, item_count: 0 });
   const [order, setOrder] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     fetchCart();
@@ -30,22 +31,33 @@ function App() {
   const fetchCart = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/cart?session_id=${sessionId}`);
+      console.log(response.data);
       setCart(response.data);
     } catch (error) {
       console.error('Error fetching cart:', error);
     }
   };
 
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000); // Auto-dismiss after 3 seconds
+  };
+
   const addToCart = async (productId, quantity = 1) => {
     try {
-      await axios.post(`${API_BASE_URL}/api/cart/add`, {
+      const result = await axios.post(`${API_BASE_URL}/api/cart/add`, {
         session_id: sessionId,
         product_id: productId,
         quantity: quantity
       });
-      await fetchCart();
+      console.log(result.data);
+      await fetchCart(); // Update cart immediately
+      showNotification('Item added to cart successfully!', 'success');
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to add item to cart');
+      const errorMsg = error.response?.data?.error || 'Failed to add item to cart';
+      showNotification(errorMsg, 'error');
     }
   };
 
@@ -91,6 +103,12 @@ function App() {
           </button>
         </nav>
       </header>
+
+      {notification && (
+        <div className={`notification notification-${notification.type}`}>
+          {notification.message}
+        </div>
+      )}
 
       <main className="container">
         {currentView === 'products' && (

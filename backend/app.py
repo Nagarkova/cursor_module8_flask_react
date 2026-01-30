@@ -80,7 +80,7 @@ def sanitize_input(input_str):
     # Remove SQL injection patterns
     dangerous_patterns = [
         r"(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b)",
-        r"(--|;|\*|'|%|_)",
+        r"(--|;|\*|'|%)",  # Removed underscore from dangerous patterns
     ]
     sanitized = input_str
     for pattern in dangerous_patterns:
@@ -412,6 +412,35 @@ def init_db():
             db.session.add(code)
         
         db.session.commit()
+
+# Initialize database before first request
+@app.before_request
+def initialize_database():
+    """Ensure database is initialized before processing any request"""
+    if not hasattr(app, '_database_initialized'):
+        with app.app_context():
+            db.create_all()
+            # Only seed if tables are empty
+            if Product.query.count() == 0:
+                products = [
+                    Product(name='Laptop', price=999.99, description='High-performance laptop', stock=10),
+                    Product(name='Mouse', price=29.99, description='Wireless mouse', stock=50),
+                    Product(name='Keyboard', price=79.99, description='Mechanical keyboard', stock=30),
+                    Product(name='Monitor', price=299.99, description='27-inch 4K monitor', stock=15),
+                ]
+                for product in products:
+                    db.session.add(product)
+                
+                discount_codes = [
+                    DiscountCode(code='SAVE10', discount_percent=10.0, is_active=True),
+                    DiscountCode(code='WELCOME20', discount_percent=20.0, is_active=True),
+                    DiscountCode(code='EXPIRED', discount_percent=15.0, is_active=False),
+                ]
+                for code in discount_codes:
+                    db.session.add(code)
+                
+                db.session.commit()
+            app._database_initialized = True
 
 if __name__ == '__main__':
     with app.app_context():
