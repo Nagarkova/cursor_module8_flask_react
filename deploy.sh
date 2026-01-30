@@ -68,13 +68,44 @@ case "$PLATFORM" in
         echo "  docker run -d -p 80:80 --name frontend ecommerce-frontend:latest"
         ;;
     
+    netlify)
+        echo -e "${GREEN}Deploying Frontend to Netlify...${NC}"
+        echo ""
+        echo -e "${YELLOW}Prerequisites:${NC}"
+        echo "1. Backend must be deployed first (Railway or Render)"
+        echo "2. Get your backend URL (e.g., https://your-backend.up.railway.app)"
+        echo ""
+        echo -e "${YELLOW}Steps:${NC}"
+        echo "1. Go to https://app.netlify.com"
+        echo "2. Add new site → Import from Git"
+        echo "3. Select repository: Nagarkova/cursor_module8_flask_react"
+        echo "4. Configure:"
+        echo "   - Base directory: frontend"
+        echo "   - Build command: npm ci && npm run build"
+        echo "   - Publish directory: frontend/build"
+        echo "5. Set environment variable:"
+        echo "   - REACT_APP_API_URL=https://your-backend.up.railway.app"
+        echo "6. Deploy!"
+        echo ""
+        echo -e "${YELLOW}Or use CLI:${NC}"
+        echo "  cd frontend"
+        echo "  npm install -g netlify-cli"
+        echo "  netlify login"
+        echo "  netlify init"
+        echo "  netlify env:set REACT_APP_API_URL https://your-backend.up.railway.app"
+        echo "  netlify deploy --prod"
+        echo ""
+        echo "See DEPLOYMENT_GUIDE.md for detailed instructions"
+        ;;
+    
     *)
-        echo -e "${YELLOW}Usage: $0 [railway|render|docker]${NC}"
+        echo -e "${YELLOW}Usage: $0 [railway|render|docker|netlify]${NC}"
         echo ""
         echo "Platforms:"
         echo "  railway  - Deploy to Railway (recommended)"
         echo "  render   - Deploy to Render"
         echo "  docker   - Build Docker images locally"
+        echo "  netlify  - Deploy frontend to Netlify"
         exit 1
         ;;
 esac

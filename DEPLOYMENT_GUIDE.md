@@ -13,6 +13,9 @@ This guide covers deploying both the Flask backend and React frontend to product
 ### Option 3: Vercel (Frontend) + Railway (Backend)
 **Best for**: Optimized frontend hosting, separate scaling
 
+### Option 4: Netlify (Frontend) + Railway/Render (Backend)
+**Best for**: Excellent frontend hosting, CDN, easy setup
+
 ---
 
 ## 📦 Option 1: Railway Deployment (Full Stack)
@@ -149,7 +152,131 @@ Follow **Option 1: Step 1** above.
 
 ---
 
-## 🐳 Option 4: Docker Compose (Self-Hosted)
+## 🌐 Option 4: Netlify (Frontend) + Railway/Render (Backend)
+
+Netlify is excellent for hosting React applications with automatic deployments, CDN, and great performance.
+
+### Prerequisites
+1. GitHub account
+2. Netlify account: https://netlify.com
+3. Backend deployed on Railway or Render (see Option 1 or 2)
+
+### Step 1: Deploy Backend First
+
+**Deploy backend to Railway or Render** (see Option 1 or 2 above) and get your backend URL:
+- Example: `https://your-backend.up.railway.app`
+- Or: `https://your-backend.onrender.com`
+
+**Important**: Make sure to set CORS on backend to allow your Netlify domain:
+```python
+# In backend/app.py, set FRONTEND_URL environment variable
+FRONTEND_URL=https://your-app.netlify.app
+```
+
+### Step 2: Deploy Frontend to Netlify
+
+#### Method A: Via Netlify Dashboard (Recommended)
+
+1. **Go to Netlify**: https://app.netlify.com
+2. **Click "Add new site" → "Import an existing project"**
+3. **Connect to Git provider** (GitHub)
+4. **Select your repository**: `Nagarkova/cursor_module8_flask_react`
+5. **Configure build settings**:
+   - **Base directory**: `frontend`
+   - **Build command**: `npm ci && npm run build`
+   - **Publish directory**: `frontend/build`
+6. **Set Environment Variables**:
+   - Click "Show advanced"
+   - Add variable:
+     - **Key**: `REACT_APP_API_URL`
+     - **Value**: `https://your-backend.up.railway.app` (your backend URL)
+7. **Click "Deploy site"**
+
+#### Method B: Via Netlify CLI
+
+```bash
+# 1. Install Netlify CLI
+npm install -g netlify-cli
+
+# 2. Login
+netlify login
+
+# 3. Navigate to frontend directory
+cd frontend
+
+# 4. Initialize Netlify site
+netlify init
+
+# 5. Set environment variable
+netlify env:set REACT_APP_API_URL https://your-backend.up.railway.app
+
+# 6. Deploy
+netlify deploy --prod
+```
+
+### Step 3: Configure Custom Domain (Optional)
+
+1. Go to **Site settings** → **Domain management**
+2. Click **Add custom domain**
+3. Enter your domain name
+4. Follow DNS configuration instructions
+
+### Step 4: Update Backend CORS
+
+After Netlify deployment, update backend CORS to include Netlify URL:
+
+**On Railway**:
+```bash
+railway variables set FRONTEND_URL=https://your-app.netlify.app
+```
+
+**On Render**:
+- Go to Environment tab
+- Add: `FRONTEND_URL=https://your-app.netlify.app`
+- Redeploy
+
+### Netlify Features
+
+✅ **Automatic Deployments**: Deploys on every push to main branch  
+✅ **Preview Deployments**: Creates preview URLs for pull requests  
+✅ **CDN**: Global content delivery network  
+✅ **HTTPS**: Automatic SSL certificates  
+✅ **Form Handling**: Built-in form submissions  
+✅ **Serverless Functions**: Can add API endpoints if needed  
+✅ **Analytics**: Built-in analytics (paid feature)  
+
+### Netlify Configuration Files
+
+The project includes:
+- `frontend/netlify.toml` - Netlify configuration
+- `frontend/public/_redirects` - React Router support
+
+These files are already configured for optimal performance.
+
+### Troubleshooting Netlify
+
+**Build Fails**:
+- Check build logs in Netlify dashboard
+- Verify Node version (should be 18+)
+- Ensure all dependencies are in `package.json`
+
+**API Calls Fail**:
+- Verify `REACT_APP_API_URL` is set correctly
+- Check backend CORS configuration
+- Test backend URL directly: `curl https://your-backend.up.railway.app/api/health`
+
+**404 Errors on Routes**:
+- The `_redirects` file handles this
+- Verify `netlify.toml` redirect rules are correct
+
+**Environment Variables Not Working**:
+- Variables must start with `REACT_APP_` prefix
+- Redeploy after changing environment variables
+- Check variable names match exactly
+
+---
+
+## 🐳 Option 5: Docker Compose (Self-Hosted)
 
 Create `docker-compose.yml`:
 
