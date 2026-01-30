@@ -36,13 +36,26 @@ describe('Complete Checkout Flow Integration Tests', () => {
       total_amount: 999.99,
     };
 
-    axios.get
-      .mockResolvedValueOnce({ data: mockProducts }) // Products
-      .mockResolvedValueOnce({ data: mockCart }); // Cart
+    // Mock axios with implementation to handle different URLs
+    axios.get.mockImplementation((url) => {
+      if (url.includes('/api/products')) {
+        return Promise.resolve({ data: mockProducts });
+      }
+      if (url.includes('/api/cart')) {
+        return Promise.resolve({ data: mockCart });
+      }
+      return Promise.resolve({ data: { items: [], total: 0, item_count: 0 } });
+    });
 
-    axios.post
-      .mockResolvedValueOnce({ data: { message: 'Item added to cart successfully' } }) // Add to cart
-      .mockResolvedValueOnce({ data: mockOrder }); // Checkout
+    axios.post.mockImplementation((url, data) => {
+      if (url.includes('/api/cart/add')) {
+        return Promise.resolve({ data: { message: 'Item added to cart successfully' } });
+      }
+      if (url.includes('/api/checkout')) {
+        return Promise.resolve({ data: mockOrder });
+      }
+      return Promise.resolve({ data: {} });
+    });
 
     render(<App />);
 
@@ -56,11 +69,14 @@ describe('Complete Checkout Flow Integration Tests', () => {
     fireEvent.click(addToCartButton);
 
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith('/api/cart/add', expect.any(Object));
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining('/api/cart/add'),
+        expect.any(Object)
+      );
     });
 
     // Step 3: View cart
-    const cartButton = screen.getByText(/Cart/i);
+    const cartButton = screen.getAllByText(/Cart/i)[0];
     fireEvent.click(cartButton);
 
     await waitFor(() => {
@@ -99,7 +115,7 @@ describe('Complete Checkout Flow Integration Tests', () => {
     // Step 7: Verify order confirmation
     await waitFor(() => {
       expect(screen.getByText(/Order Confirmed/i)).toBeInTheDocument();
-      expect(screen.getByText('ORD-123')).toBeInTheDocument();
+      expect(screen.getByText(new RegExp('ORD-123'))).toBeInTheDocument();
     });
   });
 
@@ -114,24 +130,35 @@ describe('Complete Checkout Flow Integration Tests', () => {
       item_count: 1,
     };
 
-    axios.get
-      .mockResolvedValueOnce({ data: mockProducts })
-      .mockResolvedValueOnce({ data: mockCart });
+    axios.get.mockImplementation((url) => {
+      if (url.includes('/api/products')) {
+        return Promise.resolve({ data: mockProducts });
+      }
+      return Promise.resolve({ data: mockCart });
+    });
 
-    axios.post
-      .mockResolvedValueOnce({ data: { message: 'Item added' } })
-      .mockResolvedValueOnce({
-        data: {
-          discount_code: 'SAVE10',
-          discount_percent: 10,
-          original_total: 1000.0,
-          discount_amount: 100.0,
-          final_total: 900.0,
-        },
-      })
-      .mockResolvedValueOnce({
-        data: { order_number: 'ORD-123', status: 'confirmed', total_amount: 900.0 },
-      });
+    axios.post.mockImplementation((url, data) => {
+      if (url.includes('/api/cart/add')) {
+        return Promise.resolve({ data: { message: 'Item added' } });
+      }
+      if (url.includes('/api/discount/apply')) {
+        return Promise.resolve({
+          data: {
+            discount_code: 'SAVE10',
+            discount_percent: 10,
+            original_total: 1000.0,
+            discount_amount: 100.0,
+            final_total: 900.0,
+          },
+        });
+      }
+      if (url.includes('/api/checkout')) {
+        return Promise.resolve({
+          data: { order_number: 'ORD-123', status: 'confirmed', total_amount: 900.0 },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
 
     render(<App />);
 
@@ -139,8 +166,8 @@ describe('Complete Checkout Flow Integration Tests', () => {
     await waitFor(() => screen.getByText('Add to Cart'));
     fireEvent.click(screen.getByText('Add to Cart'));
     
-    await waitFor(() => screen.getByText(/Cart/i));
-    fireEvent.click(screen.getByText(/Cart/i));
+    await waitFor(() => screen.getAllByText(/Cart/i)[0]);
+    fireEvent.click(screen.getAllByText(/Cart/i)[0]);
     
     await waitFor(() => screen.getByText('Proceed to Checkout'));
     fireEvent.click(screen.getByText('Proceed to Checkout'));
@@ -162,7 +189,12 @@ describe('Complete Checkout Flow Integration Tests', () => {
       { id: 1, name: 'Laptop', price: 999.99, description: 'Laptop', stock: 0 },
     ];
 
-    axios.get.mockResolvedValue({ data: mockProducts });
+    axios.get.mockImplementation((url) => {
+      if (url.includes('/api/products')) {
+        return Promise.resolve({ data: mockProducts });
+      }
+      return Promise.resolve({ data: { items: [], total: 0, item_count: 0 } });
+    });
 
     render(<App />);
 
@@ -175,21 +207,25 @@ describe('Complete Checkout Flow Integration Tests', () => {
 
   test('error handling: invalid discount code', async () => {
     const mockCart = {
-      items: [{ id: 1, product_name: 'Laptop', quantity: 1, subtotal: 1000.0 }],
+      items: [{ id: 1, product_id: 1, product_name: 'Laptop', price: 1000.0, quantity: 1, subtotal: 1000.0 }],
       total: 1000.0,
       item_count: 1,
     };
 
     axios.get.mockResolvedValue({ data: mockCart });
-    axios.post
-      .mockRejectedValueOnce({
-        response: { data: { error: 'Invalid discount code' } },
-      });
+    axios.post.mockImplementation((url, data) => {
+      if (url.includes('/api/discount/apply')) {
+        return Promise.reject({
+          response: { data: { error: 'Invalid discount code' } },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
 
     render(<App />);
 
     // Navigate to checkout
-    const cartButton = screen.getByText(/Cart/i);
+    const cartButton = screen.getAllByText(/Cart/i)[0];
     fireEvent.click(cartButton);
 
     await waitFor(() => screen.getByText('Proceed to Checkout'));

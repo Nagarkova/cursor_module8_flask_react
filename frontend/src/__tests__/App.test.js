@@ -38,10 +38,23 @@ describe('App Component', () => {
   });
 
   test('switches between Products and Cart views', async () => {
+    // Mock products and cart data
+    const mockProducts = [
+      { id: 1, name: 'Laptop', price: 999.99, description: 'High-performance laptop', stock: 10 },
+    ];
+    
+    axios.get.mockImplementation((url) => {
+      if (url.includes('/api/products')) {
+        return Promise.resolve({ data: mockProducts });
+      }
+      return Promise.resolve({ data: { items: [], total: 0, item_count: 0 } });
+    });
+    
     render(<App />);
     
     await waitFor(() => {
       expect(screen.getByText('E-Commerce Checkout')).toBeInTheDocument();
+      expect(screen.getByText('Laptop')).toBeInTheDocument();
     });
     
     const cartButtons = screen.getAllByText(/Cart/i);
