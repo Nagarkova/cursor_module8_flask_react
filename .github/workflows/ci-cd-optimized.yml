@@ -175,9 +175,11 @@ jobs:
       
       - name: Run unit tests
         working-directory: ./frontend
+        env:
+          CI: true
         run: |
           [ -d node_modules ] || npm ci --prefer-offline --no-audit
-          npm test -- --coverage --watchAll=false --testPathPattern="App.test"
+          npm test -- --coverage --watchAll=false --ci --testPathPattern="App.test"
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -210,9 +212,11 @@ jobs:
       
       - name: Run integration tests
         working-directory: ./frontend
+        env:
+          CI: true
         run: |
           [ -d node_modules ] || npm ci --prefer-offline --no-audit
-          npm test -- --coverage --watchAll=false --testPathPattern="integration.test"
+          npm test -- --coverage --watchAll=false --ci --testPathPattern="integration.test"
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -276,6 +280,7 @@ jobs:
         run: |
           [ -d node_modules ] || npm ci --prefer-offline --no-audit
           npm run lint
+        continue-on-error: false
 
   # ==================== Security Scanning (Parallel) ====================
   backend-security:
@@ -432,8 +437,10 @@ jobs:
         env:
           REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL || 'http://localhost:5000' }}
           CI: false  # Prevent warnings from failing build
+          GENERATE_SOURCEMAP: false  # Speed up build
         run: |
           [ -d node_modules ] || npm ci --prefer-offline --no-audit
+          npm run lint  # Run linting before build
           npm run build
       
       - name: Compress build artifacts
