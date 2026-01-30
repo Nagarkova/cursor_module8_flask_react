@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 function ProductList({ addToCart }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/products`);
       setProducts(response.data);
@@ -21,7 +17,11 @@ function ProductList({ addToCart }) {
       console.error('Error details:', error.response?.data || error.message);
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const handleAddToCart = (productId) => {
     addToCart(productId, 1);
