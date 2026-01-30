@@ -32,11 +32,13 @@ Quick guide for deploying the frontend to Netlify.
 3. **Click "Add new site"** → **"Import an existing project"**
 4. **Connect to GitHub**:
    - Authorize Netlify to access your repositories
-   - Select: `Nagarkova/cursor_module8_flask_react`
+   - **IMPORTANT**: Select the correct repository: `Nagarkova/cursor_module8_flask_react`
+   - ⚠️ Make sure you're NOT selecting `cursor_module_6_posts_flask` or any other repo
 5. **Configure Build Settings**:
-   - **Base directory**: `frontend`
-   - **Build command**: `npm ci && npm run build`
-   - **Publish directory**: `frontend/build`
+   - **Base directory**: `frontend` (or leave empty if using root `netlify.toml`)
+   - **Build command**: `npm ci && npm run build` (or leave empty if using `netlify.toml`)
+   - **Publish directory**: `frontend/build` (or leave empty if using `netlify.toml`)
+   - 💡 **Note**: The `netlify.toml` file at the root will auto-configure these settings
 6. **Set Environment Variable**:
    - Click **"Show advanced"** or **"Environment variables"**
    - Click **"Add variable"**
@@ -151,6 +153,21 @@ To disable auto-deploy:
 ## 🐛 Troubleshooting
 
 ### Build Fails
+
+**Error**: `Base directory does not exist: /opt/build/repo/frontend`
+- **Solution**: 
+  - Make sure you connected the correct repository: `Nagarkova/cursor_module8_flask_react`
+  - Check that `netlify.toml` exists at the repository root
+  - In Netlify dashboard, go to **Site settings** → **Build & deploy** → **Build settings**
+  - Set **Base directory** to: `frontend` (or leave empty if using root `netlify.toml`)
+  - Or delete the site and reconnect with the correct repository
+
+**Error**: Wrong repository cloned (e.g., `cursor_module_6_posts_flask`)
+- **Solution**: 
+  - Go to **Site settings** → **Build & deploy** → **Continuous Deployment**
+  - Click **Link to a different branch** or **Stop auto publishing**
+  - Delete the site and create a new one
+  - Make sure to select: `Nagarkova/cursor_module8_flask_react`
 
 **Error**: `npm ci` fails
 - **Solution**: Check Node version in `netlify.toml` (should be 18)
