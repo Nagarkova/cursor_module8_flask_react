@@ -2,7 +2,6 @@
  * Jest test suite for React frontend components
  * Tests user interactions, API calls, and component rendering
  */
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import axios from 'axios';

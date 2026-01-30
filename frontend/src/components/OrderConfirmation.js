@@ -1,4 +1,3 @@
-import React from 'react';
 
 function OrderConfirmation({ order }) {
   return (

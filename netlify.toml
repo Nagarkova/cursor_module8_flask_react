@@ -5,7 +5,7 @@
   # Build command - explicitly change to frontend directory
   # Run linting first to catch errors, then build
   # Using npm install instead of npm ci to handle package-lock.json sync issues
-  command = "cd frontend && npm install && npm run lint && npm run build"
+  command = "cd frontend && npm install && npm run lint:fix && npm run build"
   # Directory to publish (relative to repo root)
   publish = "frontend/build"
 

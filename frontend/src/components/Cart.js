@@ -1,4 +1,3 @@
-import React from 'react';
 
 function Cart({ cart, removeFromCart, updateCartQuantity, onCheckout }) {
   if (cart.items.length === 0) {

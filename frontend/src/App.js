@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
 import ProductList from './components/ProductList';
@@ -46,12 +46,11 @@ function App() {
 
   const addToCart = async (productId, quantity = 1) => {
     try {
-      const result = await axios.post(`${API_BASE_URL}/api/cart/add`, {
+      await axios.post(`${API_BASE_URL}/api/cart/add`, {
         session_id: sessionId,
         product_id: productId,
         quantity: quantity
       });
-      console.log(result.data);
       await fetchCart(); // Update cart immediately
       showNotification('Item added to cart successfully!', 'success');
     } catch (error) {
