@@ -25,9 +25,11 @@ function App() {
     fetchCart();
   }, []);
 
+  const API_BASE_URL = 'http://localhost:5001';
+
   const fetchCart = async () => {
     try {
-      const response = await axios.get(`/api/cart?session_id=${sessionId}`);
+      const response = await axios.get(`${API_BASE_URL}/api/cart?session_id=${sessionId}`);
       setCart(response.data);
     } catch (error) {
       console.error('Error fetching cart:', error);
@@ -36,7 +38,7 @@ function App() {
 
   const addToCart = async (productId, quantity = 1) => {
     try {
-      await axios.post('/api/cart/add', {
+      await axios.post(`${API_BASE_URL}/api/cart/add`, {
         session_id: sessionId,
         product_id: productId,
         quantity: quantity
@@ -49,7 +51,7 @@ function App() {
 
   const removeFromCart = async (itemId) => {
     try {
-      await axios.post('/api/cart/remove', {
+      await axios.post(`${API_BASE_URL}/api/cart/remove`, {
         session_id: sessionId,
         item_id: itemId
       });
@@ -61,7 +63,7 @@ function App() {
 
   const updateCartQuantity = async (itemId, quantity) => {
     try {
-      await axios.post('/api/cart/update', {
+      await axios.post(`${API_BASE_URL}/api/cart/update`, {
         session_id: sessionId,
         item_id: itemId,
         quantity: quantity

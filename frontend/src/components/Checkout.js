@@ -33,7 +33,7 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
     }
 
     try {
-      const response = await axios.post('/api/discount/apply', {
+      const response = await axios.post('http://localhost:5001/api/discount/apply', {
         session_id: sessionId,
         code: formData.discount_code
       });
@@ -68,7 +68,7 @@ function Checkout({ sessionId, cart, onSuccess, onBack }) {
         checkoutData.expiry_date = formData.expiry_date;
       }
 
-      const response = await axios.post('/api/checkout', checkoutData);
+      const response = await axios.post('http://localhost:5001/api/checkout', checkoutData);
       onSuccess(response.data);
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Checkout failed';

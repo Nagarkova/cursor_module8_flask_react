@@ -11,11 +11,12 @@ function ProductList({ addToCart }) {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/api/products');
+      const response = await axios.get('http://localhost:5001/api/products');
       setProducts(response.data);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching products:', error);
+      console.error('Error details:', error.response?.data || error.message);
       setLoading(false);
     }
   };
